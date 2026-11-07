@@ -8,6 +8,7 @@ import (
 	"go-admin/app/service"
 	"go-admin/app/utils/cachehelper"
 	"go-admin/app/utils/gormhelper"
+	"go-admin/app/utils/schedulerhelper"
 	"go-admin/app/utils/tokenhelper"
 	"go-admin/app/utils/uploadhelper"
 	"go-admin/app/utils/ymlconfig"
@@ -45,6 +46,48 @@ func init() {
 	// 初始化文件上传服务
 	app.UploadService = newUploadService()
 
+	// 初始化任务调度器
+	app.JobScheduler = newScheduler()
+
+}
+
+// newScheduler 初始化任务调度器
+func newScheduler() app.JobSchedulerInterf {
+	logDir := app.BasePath + app.ConfigYml.GetString("scheduler.log.dir")
+
+	// 解析日志级别
+	levelStr := app.ConfigYml.GetString("scheduler.log.level")
+	var level schedulerhelper.LogLevel
+	switch levelStr {
+	case "debug":
+		level = schedulerhelper.LevelDebug
+	case "info":
+		level = schedulerhelper.LevelInfo
+	case "warn":
+		level = schedulerhelper.LevelWarn
+	case "error":
+		level = schedulerhelper.LevelError
+	case "fatal":
+		level = schedulerhelper.LevelFatal
+	default:
+		level = schedulerhelper.LevelInfo
+	}
+
+	// 获取结果通道缓冲大小
+	bufferSize := app.ConfigYml.GetInt("scheduler.job_results_buffer_size")
+	if bufferSize <= 0 {
+		bufferSize = 1000 // 默认值
+	}
+
+	scheduler := schedulerhelper.NewJobScheduler(
+		schedulerhelper.WithLoggerConfig(logDir, level),
+		schedulerhelper.WithJobResultsBufferSize(bufferSize),
+	)
+
+	// 启动调度器
+	scheduler.Start()
+
+	return scheduler
 }
 
 // 初始化文件上传服务

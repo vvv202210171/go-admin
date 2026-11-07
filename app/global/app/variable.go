@@ -15,5 +15,6 @@ var (
 	Cache            CacheInterf         // 缓存指针
 	TokenManager     TokenManagerInterf  // token管理器
 	UploadService    UploadServiceInterf // 文件上传服务管理器
+	JobScheduler     JobSchedulerInterf  // 全局任务调度器
 
 )
