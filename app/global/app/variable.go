@@ -12,7 +12,8 @@ var (
 	GormDbSqlserver  *gorm.DB        // sqlserver数据库连接
 	GormDbPostgreSql *gorm.DB        // postgresql数据库连接
 	ZapLog           *zap.Logger
-	Cache            CacheInterf        // 缓存指针
-	TokenManager     TokenManagerInterf // token管理器
+	Cache            CacheInterf         // 缓存指针
+	TokenManager     TokenManagerInterf  // token管理器
+	UploadService    UploadServiceInterf // 文件上传服务管理器
 
 )

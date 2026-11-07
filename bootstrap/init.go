@@ -9,6 +9,7 @@ import (
 	"go-admin/app/utils/cachehelper"
 	"go-admin/app/utils/gormhelper"
 	"go-admin/app/utils/tokenhelper"
+	"go-admin/app/utils/uploadhelper"
 	"go-admin/app/utils/ymlconfig"
 	"log"
 	"os"
@@ -41,6 +42,18 @@ func init() {
 	// 初始化token管理
 	app.TokenManager = initTokenManager(app.Cache)
 
+	// 初始化文件上传服务
+	app.UploadService = newUploadService()
+
+}
+
+// 初始化文件上传服务
+func newUploadService() app.UploadServiceInterf {
+	uploadService, err := uploadhelper.CreateUploadService()
+	if err != nil {
+		log.Fatal("初始化文件上传服务失败: " + err.Error())
+	}
+	return uploadService
 }
 
 // 初始化token管理
