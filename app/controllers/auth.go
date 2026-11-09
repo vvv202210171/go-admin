@@ -34,7 +34,7 @@ func NewAuthController() *AuthController {
 
 // dummyPasswordHash 启动时预生成的 bcrypt 假哈希（明文内容无关紧要，任何比较必然失败，
 // 计算成本与真实密码一致）。用户不存在时用它执行等价开销的假密码比较，防止通过响应时间差枚举用户名
-var dummyPasswordHash, _ = passwordhelper.HashPassword("gin-fast-dummy-password")
+var dummyPasswordHash, _ = passwordhelper.HashPassword("go-admin-dummy-password")
 
 // Login 用户登录
 // @Summary 用户登录
@@ -215,7 +215,8 @@ func (ac *AuthController) Login(c *gin.Context) {
 	}
 
 	ac.Success(c, gin.H{
-		"accessToken": token,
+		"accessToken":        token,
+		"accessTokenExpires": 2 * 60 * 60, // 2小时
 	})
 }
 

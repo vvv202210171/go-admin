@@ -27,3 +27,41 @@
 2026/11/09 13:22:00.656485 [INFO] [JOB:system] 注册执行器: demo-executor
 2026/11/09 13:22:00.656485 [INFO] [JOB:system] 注册执行器: operation-log-cleanup
 2026/11/09 13:22:00.656485 [INFO] [JOB:operation-log-cleanup] ✨ 任务[操作日志清理] 创建 | 分组: system | 状态: 禁用 | 执行策略: 重复执行 | 阻塞策略: 丢弃 | CRON: 0 0 3 * * *
+2026/11/09 13:51:19.374300 [INFO] [JOB:system] 调度器已停止
+2026/11/09 13:51:23.861506 [INFO] [JOB:system] 日志系统初始化完成, 日志目录: D:\go\go-admin/resource/logs/scheduler, 日志级别: INFO
+2026/11/09 13:51:23.861506 [INFO] [JOB:system] 调度器已启动
+2026/11/09 13:51:23.861506 [INFO] [JOB:system] 注册执行器: demo-executor
+2026/11/09 13:51:23.861506 [INFO] [JOB:system] 注册执行器: operation-log-cleanup
+2026/11/09 13:51:23.861506 [INFO] [JOB:operation-log-cleanup] ✨ 任务[操作日志清理] 创建 | 分组: system | 状态: 禁用 | 执行策略: 重复执行 | 阻塞策略: 丢弃 | CRON: 0 0 3 * * *
+2026/11/09 14:14:19.069507 [INFO] [JOB:system] 调度器已停止
+2026/11/09 14:14:51.094587 [INFO] [JOB:system] 日志系统初始化完成, 日志目录: D:\go\go-admin/resource/logs/scheduler, 日志级别: INFO
+2026/11/09 14:14:51.094587 [INFO] [JOB:system] 调度器已启动
+2026/11/09 14:14:51.095325 [INFO] [JOB:system] 注册执行器: demo-executor
+2026/11/09 14:14:51.095325 [INFO] [JOB:system] 注册执行器: operation-log-cleanup
+2026/11/09 14:14:51.095325 [INFO] [JOB:operation-log-cleanup] ✨ 任务[操作日志清理] 创建 | 分组: system | 状态: 禁用 | 执行策略: 重复执行 | 阻塞策略: 丢弃 | CRON: 0 0 3 * * *
+2026/11/09 14:16:04.921063 [INFO] [JOB:system] 调度器已停止
+2026/11/09 14:16:20.790715 [INFO] [JOB:system] 日志系统初始化完成, 日志目录: D:\go\go-admin/resource/logs/scheduler, 日志级别: INFO
+2026/11/09 14:16:20.790715 [INFO] [JOB:system] 调度器已启动
+2026/11/09 14:16:20.790715 [INFO] [JOB:system] 注册执行器: demo-executor
+2026/11/09 14:16:20.790715 [INFO] [JOB:system] 注册执行器: operation-log-cleanup
+2026/11/09 14:16:20.790715 [INFO] [JOB:operation-log-cleanup] ✨ 任务[操作日志清理] 创建 | 分组: system | 状态: 禁用 | 执行策略: 重复执行 | 阻塞策略: 丢弃 | CRON: 0 0 3 * * *
+2026/11/09 14:16:25.755610 [INFO] [JOB:system] 日志系统初始化完成, 日志目录: D:\go\go-admin/resource/logs/scheduler, 日志级别: INFO
+2026/11/09 14:16:25.755610 [INFO] [JOB:system] 调度器已启动
+2026/11/09 14:16:25.755610 [INFO] [JOB:system] 注册执行器: demo-executor
+2026/11/09 14:16:25.755610 [INFO] [JOB:system] 注册执行器: operation-log-cleanup
+2026/11/09 14:16:25.756348 [INFO] [JOB:operation-log-cleanup] ✨ 任务[操作日志清理] 创建 | 分组: system | 状态: 禁用 | 执行策略: 重复执行 | 阻塞策略: 丢弃 | CRON: 0 0 3 * * *
+2026/11/09 14:31:35.556699 [INFO] [JOB:system] 日志系统初始化完成, 日志目录: D:\go\go-admin/resource/logs/scheduler, 日志级别: INFO
+2026/11/09 14:31:35.556699 [INFO] [JOB:system] 调度器已启动
+2026/11/09 14:31:35.556699 [INFO] [JOB:system] 注册执行器: demo-executor
+2026/11/09 14:31:35.556699 [INFO] [JOB:system] 注册执行器: operation-log-cleanup
+2026/11/09 14:31:35.556699 [INFO] [JOB:operation-log-cleanup] ✨ 任务[操作日志清理] 创建 | 分组: system | 状态: 禁用 | 执行策略: 重复执行 | 阻塞策略: 丢弃 | CRON: 0 0 3 * * *
+2026/11/09 15:26:37.594461 [INFO] [JOB:system] 日志系统初始化完成, 日志目录: D:\go\go-admin/resource/logs/scheduler, 日志级别: INFO
+2026/11/09 15:26:37.594461 [INFO] [JOB:system] 调度器已启动
+2026/11/09 15:26:37.594461 [INFO] [JOB:system] 注册执行器: demo-executor
+2026/11/09 15:26:37.594461 [INFO] [JOB:system] 注册执行器: operation-log-cleanup
+2026/11/09 15:26:37.594461 [INFO] [JOB:operation-log-cleanup] ✨ 任务[操作日志清理] 创建 | 分组: system | 状态: 禁用 | 执行策略: 重复执行 | 阻塞策略: 丢弃 | CRON: 0 0 3 * * *
+2026/11/09 15:28:18.821071 [INFO] [JOB:system] 日志系统初始化完成, 日志目录: D:\go\go-admin/resource/logs/scheduler, 日志级别: INFO
+2026/11/09 15:28:18.821071 [INFO] [JOB:system] 调度器已启动
+2026/11/09 15:28:18.821071 [INFO] [JOB:system] 注册执行器: demo-executor
+2026/11/09 15:28:18.821071 [INFO] [JOB:system] 注册执行器: operation-log-cleanup
+2026/11/09 15:28:18.822074 [INFO] [JOB:operation-log-cleanup] ✨ 任务[操作日志清理] 创建 | 分组: system | 状态: 禁用 | 执行策略: 重复执行 | 阻塞策略: 丢弃 | CRON: 0 0 3 * * *

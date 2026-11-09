@@ -18,6 +18,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// ginEngine 全局保存的 Gin 引擎实例，在所有路由（含插件路由）注册完成后通过 SetEngine 注入
+// 主要供路由同步等需要在运行时遍历已注册路由的功能使用
+var ginEngine *gin.Engine
+
+// SetEngine 保存全局 Gin 引擎实例
+// 应在 routes.InitRoutes 与 InitPluginRoutes 都完成之后再调用，确保所有路由已注册
+func SetEngine(engine *gin.Engine) {
+	ginEngine = engine
+	app.ZapLog.Info("全局 Gin 引擎实例已保存")
+}
+
 func GetEngine() *gin.Engine {
 	var engine *gin.Engine
 	if !app.ConfigYml.GetBool("server.appdebug") {
@@ -32,6 +43,13 @@ func GetEngine() *gin.Engine {
 	engine = gin.New()
 	engine.Use(gin.Logger(), CustomRecovery())
 	return engine
+}
+
+// GetSavedEngine 获取全局已保存的 Gin 引擎实例
+// 注意：与 GetEngine()（创建新引擎的工厂函数）不同，此函数返回 SetEngine 注入的已注册所有路由的引擎实例
+// 若尚未通过 SetEngine 注入，则返回 nil
+func GetSavedEngine() *gin.Engine {
+	return ginEngine
 }
 
 // CustomRecovery 自定义错误(panic等)拦截中间件、对可能发生的错误进行拦截、统一记录
@@ -200,15 +218,4 @@ func StartServer(engine *gin.Engine) error {
 
 	app.ZapLog.Info("服务器已优雅关闭")
 	return nil
-}
-
-// ginEngine 全局保存的 Gin 引擎实例，在所有路由（含插件路由）注册完成后通过 SetEngine 注入
-// 主要供路由同步等需要在运行时遍历已注册路由的功能使用
-var ginEngine *gin.Engine
-
-// SetEngine 保存全局 Gin 引擎实例
-// 应在 routes.InitRoutes 与 InitPluginRoutes 都完成之后再调用，确保所有路由已注册
-func SetEngine(engine *gin.Engine) {
-	ginEngine = engine
-	app.ZapLog.Info("全局 Gin 引擎实例已保存")
 }

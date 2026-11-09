@@ -15,6 +15,7 @@ var (
 	GormDbSqlserver  *gorm.DB        // sqlserver数据库连接
 	GormDbPostgreSql *gorm.DB        // postgresql数据库连接
 	ZapLog           *zap.Logger
+	CasbinV2         CasbinInterf        // casbin指针
 	Cache            CacheInterf         // 缓存指针
 	TokenManager     TokenManagerInterf  // token管理器
 	Response         ResponseHandler     // 全局响应指针

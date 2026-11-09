@@ -8,9 +8,11 @@ import (
 	"go-admin/app/scheduler"
 	"go-admin/app/service"
 	"go-admin/app/utils/cachehelper"
+	"go-admin/app/utils/casbinhelper"
 	"go-admin/app/utils/gormhelper"
 	"go-admin/app/utils/response"
 	"go-admin/app/utils/schedulerhelper"
+	"go-admin/app/utils/sysconfighelper"
 	"go-admin/app/utils/tokenhelper"
 	"go-admin/app/utils/uploadhelper"
 	"go-admin/app/utils/ymlconfig"
@@ -39,6 +41,20 @@ func init() {
 	app.ZapLog = createZapFactory(service.ZapLogHandler)
 	// 初始化数据库
 	initDB()
+
+	// 初始化系统配置（自动建表播种 sys_config 并加载缓存，须在数据库就绪后、业务消费前）
+	initSysConfig()
+
+	// 初始化超管账号（按 server.initadmin 配置，全新部署时自动创建）
+	initAdmin()
+
+	// 初始化casbin
+	app.CasbinV2 = casbinhelper.NewCasbinHelper()
+	err := app.CasbinV2.InitCasbin(app.DB(), app.ConfigYml.GetString("casbin.modelconfig"))
+	if err != nil {
+		log.Fatal("CasbinV2.InitCasbin err :" + err.Error())
+	}
+
 	//初始化缓存
 	app.Cache = initCache()
 
@@ -61,6 +77,16 @@ func init() {
 	app.Response = response.NewResponseHandler()
 	//首次部署使用
 	// initAdmin()
+}
+
+// initSysConfig 初始化系统配置（sys_config 表补种缺失配置行并加载缓存）。
+// 失败直接致命退出：配置读取遍布登录/验证码/密码中间件，缺表时不应带病启动。
+// sys_config 表不自动创建（遵循部署惯例），需先导入 resource/database 下的结构 SQL
+func initSysConfig() {
+	if err := sysconfighelper.Instance().Init(); err != nil {
+		log.Fatal("初始化系统配置失败(sys_config): " + err.Error() +
+			" —— 请确认已导入 resource/database 下对应数据库的结构 SQL（含 sys_config 表）")
+	}
 }
 
 // newScheduler 初始化任务调度器
