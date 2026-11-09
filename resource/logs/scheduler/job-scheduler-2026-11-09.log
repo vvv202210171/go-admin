@@ -77,3 +77,4 @@
 2026/11/09 15:43:21.807868 [INFO] [JOB:system] 注册执行器: demo-executor
 2026/11/09 15:43:21.807868 [INFO] [JOB:system] 注册执行器: operation-log-cleanup
 2026/11/09 15:43:21.807868 [INFO] [JOB:operation-log-cleanup] ✨ 任务[操作日志清理] 创建 | 分组: system | 状态: 禁用 | 执行策略: 重复执行 | 阻塞策略: 丢弃 | CRON: 0 0 3 * * *
+2026/11/09 15:45:55.465199 [INFO] [JOB:system] 调度器已停止

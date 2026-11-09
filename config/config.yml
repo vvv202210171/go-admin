@@ -15,7 +15,7 @@ server:
     enabled: false    # 是否启用演示账号功能
     # 演示账号的用户ID列表，可以设置多个账号
     userids: []       # 演示账号的用户ID列表，例如：[1, 2, 3]
-    defaultusername: "admin"  # 登录页默认账号的初始默认值（运行时以 sys_config 表为准，后台「系统配置」页面修改）
+    defaultusername: "demo"  # 登录页默认账号的初始默认值（运行时以 sys_config 表为准，后台「系统配置」页面修改）
     defaultpassword: "123456"  # 演示密码的初始默认值（登录页密码框 placeholder，由用户自行输入）
     # 允许演示账号执行非GET请求的路径前缀列表（白名单）
     # 配置后，演示账号可以对这些路径执行POST/PUT/DELETE等操作
