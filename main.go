@@ -9,7 +9,7 @@ import (
 
 func main() {
 	engine := ginhelper.GetEngine()
-	routes.InitRouter(engine)
+	routes.InitRoutes(engine)
 	// 初始化插件路由
 	ginhelper.InitPluginRoutes(engine)
 	// 保存全局 Gin 引擎实例（供路由同步等功能在运行时遍历已注册路由使用）

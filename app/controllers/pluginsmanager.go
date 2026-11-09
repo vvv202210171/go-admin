@@ -1,0 +1,203 @@
+package controllers
+
+import (
+	"bytes"
+	"errors"
+	"regexp"
+
+	"go-admin/app/global/consts"
+	"go-admin/app/models"
+	"go-admin/app/service"
+	"go-admin/app/utils/common"
+
+	"github.com/gin-gonic/gin"
+)
+
+// PluginsManagerController 插件管理控制器
+type PluginsManagerController struct {
+	Common
+	service *service.PluginsManagerService
+}
+
+// NewPluginsManagerController 创建插件管理控制器
+func NewPluginsManagerController() *PluginsManagerController {
+	return &PluginsManagerController{
+		Common:  Common{},
+		service: service.NewPluginsManagerService(),
+	}
+}
+
+// GetPluginsExport 获取所有插件导出配置
+// @Summary 获取插件导出配置列表
+// @Description 获取plugins文件夹下所有子文件夹中的plugin_export.json文件内容
+// @Tags 插件管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "成功返回插件导出配置列表"
+// @Failure 500 {object} map[string]interface{} "服务器内部错误"
+// @Router /pluginsmanager/exports [get]
+// @Security ApiKeyAuth
+func (pmc *PluginsManagerController) GetPluginsExport(c *gin.Context) {
+	pluginsExports, err := pmc.service.GetPluginsExportList()
+	if err != nil {
+		pmc.FailAndAbort(c, "读取plugins目录失败", err, 500)
+	}
+
+	// 返回成功响应
+	pmc.Success(c, gin.H{
+		"list": pluginsExports,
+	})
+}
+
+// ExportPlugin 导出插件为压缩包
+// @Summary 导出插件
+// @Description 根据plugin_export中的导出配置，将指定插件打包成压缩文件
+// @Tags 插件管理
+// @Accept json
+// @Produce application/zip
+// @Param body body map[string]string true "请求体 {folderName: 插件文件夹名称}"
+// @Success 200 "返回压缩包文件"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "服务器内部错误"
+// @Router /pluginsmanager/export [post]
+// @Security ApiKeyAuth
+func (pmc *PluginsManagerController) ExportPlugin(c *gin.Context) {
+	var req map[string]interface{}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		pmc.FailAndAbort(c, "请求参数错误", err, 400)
+		return
+	}
+	folderName, _ := req["folderName"].(string)
+	if folderName == "" {
+		pmc.FailAndAbort(c, "插件名称不能为空", errors.New("folderName is required"), 400)
+		return
+	}
+
+	// 获取是否包含数据库数据参数，默认为 true
+	includeData := true
+	if val, ok := req["includeData"].(bool); ok {
+		includeData = val
+	}
+
+	// 先写入到内存中，需要先设置响应头
+	buf := new(bytes.Buffer)
+	version, err := pmc.service.ExportPluginToWriter(folderName, buf, includeData)
+	if err != nil {
+		pmc.FailAndAbort(c, err.Error(), err, 500)
+	}
+
+	// 构建包含版本信息的文件名
+	filename := folderName
+	if version != "" {
+		filename = folderName + "_" + version
+	}
+
+	// 设置响应头 - 使用正确的 Content-Disposition 格式
+	c.Header("Content-Type", "application/zip")
+	// filename 白名单消毒（folderName 已在服务层按目录名校验，此处兜底插件自带配置中的 version 串），
+	// 防止引号/CRLF 等字符注入响应头
+	c.Header("Content-Disposition", "attachment; filename=\""+sanitizeDownloadFilename(filename)+".zip\"")
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+
+	// 将缩缩包内容写入响应体
+	c.DataFromReader(200, int64(buf.Len()), "application/zip", buf, nil)
+}
+
+// downloadFilenameSanitizer 下载文件名白名单：仅保留字母数字点下划线连字符，其余一律替换为下划线
+var downloadFilenameSanitizer = regexp.MustCompile(`[^A-Za-z0-9._-]`)
+
+// sanitizeDownloadFilename 消毒 Content-Disposition 中的文件名，防止引号/CRLF 头注入
+func sanitizeDownloadFilename(name string) string {
+	return downloadFilenameSanitizer.ReplaceAllString(name, "_")
+}
+
+// ImportPlugin 导入插件
+// @Summary 导入插件
+// @Description 从上传的压缩包导入插件
+// @Tags 插件管理
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "插件压缩包文件"
+// @Param overwriteDB formData int false "是否覆盖数据库 (0:否, 1:是)" default(0)
+// @Param importMenu formData int false "是否导入菜单 (0:否, 1:是)" default(0)
+// @Param overwriteFiles formData int false "是否覆盖文件 (0:否, 1:是)" default(0)
+// @Param confirmDangerousSQL formData int false "已确认database.sql中的危险语句，允许继续执行 (0:否, 1:是)" default(0)
+// @Success 200 {object} map[string]interface{} "导入成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "服务器内部错误"
+// @Router /pluginsmanager/import [post]
+// @Security ApiKeyAuth
+func (pmc *PluginsManagerController) ImportPlugin(c *gin.Context) {
+	// 获取上传的文件
+	file, err := c.FormFile("file")
+	if err != nil {
+		pmc.FailAndAbort(c, "请上传插件压缩包文件", err, 400)
+	}
+
+	// 解析请求参数
+	var req models.PluginImportRequest
+	if err := c.ShouldBind(&req); err != nil {
+		pmc.FailAndAbort(c, "请求参数错误", err, 400)
+	}
+
+	// 如果UserID为0，使用当前登录用户的ID
+	if req.UserID == 0 {
+		req.UserID = common.GetCurrentUserID(c)
+	}
+
+	// 打开上传的文件
+	src, err := file.Open()
+	if err != nil {
+		pmc.FailAndAbort(c, "打开上传文件失败", err, 500)
+	}
+	defer src.Close()
+
+	// 调用服务层导入插件
+	existingItems, err := pmc.service.ImportPluginFromReader(c, src, req)
+	if err != nil {
+		pmc.FailAndAbort(c, err.Error(), err, 500)
+	}
+
+	// 存在警告项（database.sql含危险语句，或已存在文件/表）时返回警告，
+	// 由前端弹窗确认后携带确认参数重新提交，未确认前不执行任何导入；
+	// 业务码用专门的警告码（2），不与失败码 1 混淆（前端 code===0 为成功，非 0 进警告分支）
+	if !existingItems.IsEmpty() {
+		if len(existingItems.DangerousSQLs) > 0 {
+			pmc.SuccessWithMessage(c, "导入的database.sql包含危险语句，请确认是否继续导入", existingItems, consts.ResponseWarningCode)
+			return
+		}
+		pmc.SuccessWithMessage(c, "以下项已存在，请核查", existingItems, consts.ResponseWarningCode)
+		return
+	}
+
+	// 返回成功响应
+	pmc.SuccessWithMessage(c, "插件导入成功")
+}
+
+// UninstallPlugin 卸载插件
+// @Summary 卸载插件
+// @Description 根据plugin_export.json配置，卸载指定插件（移除菜单、文件和数据库表）
+// @Tags 插件管理
+// @Accept json
+// @Produce json
+// @Param folderName query string true "插件文件夹名称"
+// @Success 200 {object} map[string]interface{} "卸载成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "服务器内部错误"
+// @Router /pluginsmanager/uninstall [delete]
+// @Security ApiKeyAuth
+func (pmc *PluginsManagerController) UninstallPlugin(c *gin.Context) {
+	folderName := c.Query("folderName")
+	if folderName == "" {
+		pmc.FailAndAbort(c, "插件名称不能为空", errors.New("folderName is required"), 400)
+	}
+
+	// 调用服务层卸载插件
+	err := pmc.service.UninstallPlugin(c, folderName)
+	if err != nil {
+		pmc.FailAndAbort(c, err.Error(), err, 500)
+	}
+
+	// 返回成功响应
+	pmc.SuccessWithMessage(c, "插件卸载成功")
+}
