@@ -1,17 +1,15 @@
 package routes
 
 import (
-	"context"
+	"go-admin/app/global/app"
 	"time"
+
+	"go-admin/app/middleware"
+	"go-admin/app/utils/ginhelper"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-
-	"gin-fast/app/global/app"
-	"gin-fast/app/middleware"
-	"gin-fast/app/utils/cachehelper"
-	"gin-fast/app/utils/ginhelper"
 )
 
 // setupGlobalMiddleware 注册引擎级全局中间件与全局路由（须在 /api 业务路由注册之前调用，保持原有注册顺序）：
@@ -50,15 +48,15 @@ func setupGlobalMiddleware(engine *gin.Engine) {
 	if app.ConfigYml.GetBool("server.appdebug") {
 		// 注册Swagger路由
 		engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-		// 查看内存缓存项（需登录鉴权 + 超管校验，且 token 类缓存值脱敏，防止泄露在线用户凭证）
-		engine.GET("/viewCache", middleware.JWTAuthMiddleware(), middleware.SuperAdminMiddleware(), func(ctx *gin.Context) {
-			items, err := app.Cache.GetAll(context.Background())
-			if err != nil {
-				ctx.JSON(500, gin.H{"error": "获取缓存项失败", "details": err.Error()})
-				return
-			}
-			ctx.JSON(200, cachehelper.MaskTokenValues(items))
-		})
+		// // 查看内存缓存项（需登录鉴权 + 超管校验，且 token 类缓存值脱敏，防止泄露在线用户凭证）
+		// engine.GET("/viewCache", middleware.JWTAuthMiddleware(), middleware.SuperAdminMiddleware(), func(ctx *gin.Context) {
+		// 	items, err := app.Cache.GetAll(context.Background())
+		// 	if err != nil {
+		// 		ctx.JSON(500, gin.H{"error": "获取缓存项失败", "details": err.Error()})
+		// 		return
+		// 	}
+		// 	ctx.JSON(200, cachehelper.MaskTokenValues(items))
+		// })
 	}
 
 	// 全局操作日志中间件

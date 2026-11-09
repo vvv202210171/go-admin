@@ -3,7 +3,7 @@ package main
 import (
 	_ "go-admin/bootstrap"
 
-	"go-admin/app/global/app/routes"
+	"go-admin/app/routes"
 	"go-admin/app/utils/ginhelper"
 )
 
