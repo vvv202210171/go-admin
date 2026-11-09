@@ -1,0 +1,276 @@
+package controllers
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"go-admin/app/global/app"
+	"go-admin/app/models"
+
+	"go-admin/app/utils/captchahelper"
+	"go-admin/app/utils/common"
+	"go-admin/app/utils/passwordhelper"
+	"go-admin/app/utils/sysconfighelper"
+	"go-admin/app/utils/tenanthelper"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+)
+
+// LoginRequest 登录请求结构
+
+type AuthController struct {
+	Common
+}
+
+// NewAuthController 创建认证控制器
+func NewAuthController() *AuthController {
+	return &AuthController{
+		Common: Common{},
+	}
+}
+
+// dummyPasswordHash 启动时预生成的 bcrypt 假哈希（明文内容无关紧要，任何比较必然失败，
+// 计算成本与真实密码一致）。用户不存在时用它执行等价开销的假密码比较，防止通过响应时间差枚举用户名
+var dummyPasswordHash, _ = passwordhelper.HashPassword("gin-fast-dummy-password")
+
+// Login 用户登录
+// @Summary 用户登录
+// @Description 用户登录获取访问令牌
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param loginReq body models.LoginRequest true "登录请求参数"
+// @Success 200 {object} map[string]interface{} "成功返回访问令牌"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 401 {object} map[string]interface{} "用户名或密码错误"
+// @Router /login [post]
+func (ac *AuthController) Login(c *gin.Context) {
+	var req models.LoginRequest
+	if err := req.Validate(c); err != nil {
+		ac.FailAndAbort(c, err.Error(), err)
+	}
+
+	// 根据用户名查找用户
+	user := models.NewUser()
+	err := user.Find(c, func(d *gorm.DB) *gorm.DB {
+		return d.Where("username = ?", req.Username).Preload("Tenant")
+	})
+	if err != nil {
+		ac.FailAndAbort(c, "用户查询错误", err)
+	}
+
+	// 用户不存在时以预置假哈希走完全相同的密码校验与失败计数流程：
+	// 消息、时序、锁定行为与"密码错误"不可区分，防止枚举有效用户名。
+	// 密码校验置于租户校验之前，租户信息不再向未持正确密码者泄露
+	if user.IsEmpty() {
+		user.Password = dummyPasswordHash
+	} else if user.Status != 1 {
+		ac.FailAndAbort(c, "用户未启用", nil)
+	}
+
+	// 获取安全配置（存于 sys_config 表，经 sysconfighelper 读取）
+	sysConfig := sysconfighelper.Instance()
+	loginLockThreshold := sysConfig.GetInt(sysconfighelper.CodeLoginLockThreshold)
+	loginLockExpire := sysConfig.GetInt(sysconfighelper.CodeLoginLockExpire)
+	loginLockDuration := sysConfig.GetInt(sysconfighelper.CodeLoginLockDuration)
+
+	// 失败计数与锁定键按"用户名+IP"组合：既能拦截同一来源爆破，
+	// 又避免攻击者仅凭用户名远程锁死任意真实账号（登录 DoS）
+	lockKey := "account_locked:" + req.Username + ":" + c.ClientIP()
+	failCountKey := "login_fail_count:" + req.Username + ":" + c.ClientIP()
+
+	// 如果启用了登录锁定功能
+	if loginLockThreshold > 0 {
+		// 检查账户是否被锁定
+		// 缓存故障时记日志并放行（fail-open）：锁定是辅助安全措施，不可用时不应阻断全部登录
+		locked, lockCheckErr := app.Cache.Exists(context.Background(), lockKey)
+		if lockCheckErr != nil {
+			app.ZapLog.Error("查询账户锁定状态失败", zap.String("username", req.Username), zap.Error(lockCheckErr))
+		} else if locked > 0 {
+			ac.FailAndAbort(c, "失败次数过多，账户已被锁定，请稍后再试", nil)
+			return
+		}
+
+		// 验证密码
+		if err = passwordhelper.ComparePassword(user.Password, req.Password); err != nil {
+			// 密码错误，原子自增失败计数（INCR + 首次自增时设置 TTL，固定窗口语义），
+			// 消除原"Incr 后仅首次补 Expire"两步非原子导致的计数键永不过期问题
+			failCount, incrErr := app.Cache.IncrWithExpire(context.Background(), failCountKey, time.Duration(loginLockExpire)*time.Second)
+			if incrErr != nil {
+				// 缓存故障时记日志并放行（fail-open），此时无法给出剩余次数提示
+				app.ZapLog.Error("记录登录失败计数失败", zap.String("username", req.Username), zap.Error(incrErr))
+				ac.FailAndAbort(c, "用户名或密码错误", nil)
+				return
+			}
+
+			// 检查是否达到锁定阈值
+			if failCount >= int64(loginLockThreshold) {
+				// 锁定
+				if lockErr := app.Cache.Set(context.Background(), lockKey, "1", time.Duration(loginLockDuration)*time.Second); lockErr != nil {
+					app.ZapLog.Error("写入账户锁定标记失败", zap.String("username", req.Username), zap.Error(lockErr))
+				}
+				ac.FailAndAbort(c, "失败次数过多，账户已被锁定，请稍后再试", nil)
+				return
+			}
+
+			// 返回统一消息（不区分用户不存在/密码错误），并提示剩余尝试次数
+			ac.FailAndAbort(c, fmt.Sprintf("用户名或密码错误（剩余尝试次数: %d次）", int64(loginLockThreshold)-failCount), nil)
+			return
+		}
+
+		// 密码正确，清除失败次数（失败仅记日志：残留计数会在 loginLockExpire 后自动过期）
+		if delErr := app.Cache.Del(context.Background(), failCountKey); delErr != nil {
+			app.ZapLog.Error("清除登录失败计数失败", zap.String("username", req.Username), zap.Error(delErr))
+		}
+	} else {
+		// 未启用登录锁定功能
+		// 验证密码
+		if err = passwordhelper.ComparePassword(user.Password, req.Password); err != nil {
+			ac.FailAndAbort(c, "用户名或密码错误", err)
+		}
+	}
+
+	var tenantID uint
+	var tenantCode string
+
+	// 多租户关闭时忽略租户编码，统一走用户默认租户（单体模式）
+	if !tenanthelper.MultiTenantEnabled() {
+		req.TenantCode = ""
+	}
+
+	// 检查租户是否存在, 并验证用户是否关联该租户, 通过后用户token的租户ID将设置成请求的租户编码相关的租户ID
+	if req.TenantCode != "" {
+		if user.TenantID > 0 {
+			// 查询用户关联的所有租户
+			userTenantList := models.NewSysUserTenantList()
+			err = userTenantList.Find(c, func(db *gorm.DB) *gorm.DB {
+				return db.Where("user_id = ?", user.ID).Preload("Tenant")
+			})
+			if err != nil {
+				ac.FailAndAbort(c, "查询用户租户关联信息错误", err)
+			}
+
+			// 构建用户关联的租户映射
+			userTenants := make(map[string]*models.Tenant)
+			for _, ut := range userTenantList {
+				if ut.Tenant != nil && ut.Tenant.Code != "" {
+					userTenants[ut.Tenant.Code] = ut.Tenant
+				}
+			}
+			// 检查请求的租户编码是否在用户关联的租户集合中
+			tenant, exists := userTenants[req.TenantCode]
+			if !exists {
+				ac.FailAndAbort(c, "租户编码不在用户关联的租户列表中", nil)
+			}
+
+			if tenant.Status != 1 {
+				ac.FailAndAbort(c, "租户未启用", nil)
+			}
+
+			tenantID = tenant.ID
+			tenantCode = tenant.Code
+		} else {
+			// 全局租户无需检查关联租户
+			tenant := models.NewTenant()
+			err = tenant.Find(c, func(d *gorm.DB) *gorm.DB {
+				return d.Where("code = ?", req.TenantCode)
+			})
+			if err != nil {
+				ac.FailAndAbort(c, "查询租户错误", err)
+			}
+			if tenant.IsEmpty() {
+				ac.FailAndAbort(c, "租户不存在", nil, 404)
+			}
+			if tenant.Status != 1 {
+				ac.FailAndAbort(c, "租户未启用", nil)
+			}
+			tenantID = tenant.ID
+			tenantCode = tenant.Code
+		}
+
+	} else {
+		// 不输入租户编码则使用用户默认租户
+		// 非全局租户需检查启用状态
+		if user.Tenant.ID > 0 && user.Tenant.Status != 1 {
+			ac.FailAndAbort(c, "租户未启用", nil)
+		}
+		tenantID = user.Tenant.ID
+		tenantCode = user.Tenant.Code
+	}
+
+	// 生成token
+	user.Password = ""
+	token, err := app.TokenManager.GenerateTokenWithCache(&app.ClaimsUser{
+		UserID:     user.ID,
+		Username:   user.Username,
+		TenantID:   tenantID,
+		TenantCode: tenantCode,
+	})
+
+	if err != nil {
+		ac.FailAndAbort(c, "生成token失败", err)
+	}
+
+	ac.Success(c, gin.H{
+		"accessToken": token,
+	})
+}
+
+// Logout 用户登出
+// @Summary 用户登出
+// @Description 用户登出，撤销access token和refresh token
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "成功登出"
+// @Failure 401 {object} map[string]interface{} "用户未登录"
+// @Router /users/logout [post]
+func (ac *AuthController) Logout(c *gin.Context) {
+	// 从上下文中获取用户信息
+	claims := common.GetClaims(c)
+	if claims == nil {
+		ac.FailAndAbort(c, "用户未登录", nil)
+		return
+	}
+
+	// 撤销 access token
+	tokenString, err := common.GetAccessTokenFromHeader(c)
+	if err == nil && tokenString != "" {
+		// 尝试撤销access token，即使失败也继续执行
+		app.TokenManager.RevokeTokenWithCache(tokenString)
+	}
+
+	// 撤销refresh token
+	err = app.TokenManager.RevokeRefreshToken(claims.UserID)
+	if err != nil {
+		ac.FailAndAbort(c, "登出失败", err)
+	}
+
+	ac.Success(c, gin.H{
+		"message": "登出成功",
+	})
+}
+
+// GetVerifyImgString 获取验证码图片字符串
+// @Summary 获取验证码图片字符串
+// @Description 获取验证码图片字符串，返回验证码ID和base64图片
+// @Tags 认证
+// @Produce json
+// @Success 200 {object} map[string]interface{} "成功返回验证码ID和base64图片"
+// @Failure 500 {object} map[string]interface{} "生成验证码失败"
+// @Router /captcha/verify [get]
+func (ac *AuthController) GetVerifyImgString(c *gin.Context) {
+	idKeyC, base64stringC, err := captchahelper.GetCaptchaHelper().GetVerifyImgString()
+	if err != nil {
+		ac.FailAndAbort(c, "生成验证码失败", err)
+		return
+	}
+
+	ac.Success(c, gin.H{
+		"captchaId": idKeyC,
+		"image":     base64stringC,
+	})
+}
