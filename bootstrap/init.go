@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"go-admin/app/global/app"
 	"go-admin/app/global/consts"
+	"go-admin/app/scheduler"
 	"go-admin/app/service"
 	"go-admin/app/utils/cachehelper"
 	"go-admin/app/utils/gormhelper"
+	"go-admin/app/utils/response"
 	"go-admin/app/utils/schedulerhelper"
 	"go-admin/app/utils/tokenhelper"
 	"go-admin/app/utils/uploadhelper"
@@ -49,6 +51,14 @@ func init() {
 	// 初始化任务调度器
 	app.JobScheduler = newScheduler()
 
+	// 注册所有执行器
+	scheduler.RegisterExecutors()
+
+	// 从数据库加载启用的任务到调度器及任务结果处理器
+	scheduler.LoadJobsFromDB()
+
+	// 初始化Response
+	app.Response = response.NewResponseHandler()
 }
 
 // newScheduler 初始化任务调度器

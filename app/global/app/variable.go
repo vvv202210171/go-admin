@@ -1,6 +1,9 @@
 package app
 
 import (
+	"go-admin/app/global/consts"
+	"log"
+
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -14,7 +17,40 @@ var (
 	ZapLog           *zap.Logger
 	Cache            CacheInterf         // 缓存指针
 	TokenManager     TokenManagerInterf  // token管理器
+	Response         ResponseHandler     // 全局响应指针
 	UploadService    UploadServiceInterf // 文件上传服务管理器
 	JobScheduler     JobSchedulerInterf  // 全局任务调度器
 
 )
+
+/*
+ * @Description: 获取数据库连接
+ * @param sqlType 数据库类型 mysql sqlserver postgresql
+ * @return *gorm.DB
+ */
+func DB(sqlType ...string) *gorm.DB {
+	var dbType string
+	if len(sqlType) > 0 {
+		dbType = sqlType[0]
+	} else {
+		dbType = ConfigYml.GetString("gormv2.usedbtype")
+	}
+	var db *gorm.DB
+	switch dbType {
+	case consts.DbTypeMySql:
+		db = GormDbMysql
+	case consts.DbTypeSqlServer:
+		db = GormDbSqlserver
+	case consts.DbTypePostgreSql:
+		db = GormDbPostgreSql
+	default:
+		db = GormDbMysql
+	}
+	if db == nil {
+		// 正常情况下启动期（bootstrap.initDB）已校验过 usedbtype 与 isinit 开关的匹配，
+		// 走到这里说明启动后配置被改坏或连接被外部置空，保留兜底并给出可排查的错误信息
+		log.Fatalf("数据库连接不可用：gormv2.usedbtype=%s 对应连接未初始化，请检查 config.yml 中 gormv2.* 各项配置", dbType)
+	}
+
+	return db
+}
