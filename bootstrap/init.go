@@ -59,6 +59,8 @@ func init() {
 
 	// 初始化Response
 	app.Response = response.NewResponseHandler()
+	//首次部署使用
+	// initAdmin()
 }
 
 // newScheduler 初始化任务调度器
