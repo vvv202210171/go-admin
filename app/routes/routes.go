@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"go-admin/app/controllers"
+	"go-admin/app/controllers/tinode"
 	"go-admin/app/middleware"
 	"go-admin/app/utils/tenanthelper"
 )
@@ -26,7 +27,7 @@ var sysJobsControllers = controllers.NewSysJobsController()                 // �
 var sysJobResultsControllers = controllers.NewSysJobResultsController()     // 定时任务执行结果控制器
 var sysParamControllers = controllers.NewSysParamController()               // 参数管理控制器
 var areaControllers = controllers.NewAreaController()                       // 地区管理控制器
-
+var tinodeUserControllers = tinode.NewTinodeUserController()                // tinode用户管理控制器
 // InitRoutes 初始化路由
 func InitRoutes(engine *gin.Engine) {
 	// 注册全局中间件、静态资源与调试路由（详见 globalmiddleware.go）
@@ -49,6 +50,14 @@ func InitRoutes(engine *gin.Engine) {
 		protected.Use(middleware.DemoAccountMiddleware()) // 添加演示账号中间件
 		protected.Use(middleware.CasbinMiddleware())
 		{
+			//tinode用户管理路由组
+			tinodeUser := protected.Group("/tinodeUser")
+			{
+				// 获取tinode用户列表
+				tinodeUser.GET("/list", tinodeUserControllers.List)
+
+			}
+
 			// 用户管理路由组
 			users := protected.Group("/users")
 			{
