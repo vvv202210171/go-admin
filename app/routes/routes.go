@@ -28,6 +28,7 @@ var sysJobResultsControllers = controllers.NewSysJobResultsController()     // �
 var sysParamControllers = controllers.NewSysParamController()               // 参数管理控制器
 var areaControllers = controllers.NewAreaController()                       // 地区管理控制器
 var tinodeUserControllers = tinode.NewTinodeUserController()                // tinode用户管理控制器
+var tinodeMessageControllers = tinode.NewTinodeMessageController()          // tinode消息管理控制器
 // InitRoutes 初始化路由
 func InitRoutes(engine *gin.Engine) {
 	// 注册全局中间件、静态资源与调试路由（详见 globalmiddleware.go）
@@ -56,6 +57,13 @@ func InitRoutes(engine *gin.Engine) {
 				// 获取tinode用户列表
 				tinodeUser.GET("/list", tinodeUserControllers.List)
 
+			}
+			//tinode消息路由组
+			tinodeMessage := protected.Group("/tinodeMessage")
+			{
+				// 获取tinode消息列表
+				tinodeMessage.GET("/list", tinodeMessageControllers.List)
+				tinodeMessage.GET("/topic/list", tinodeMessageControllers.TopicList)
 			}
 
 			// 用户管理路由组
