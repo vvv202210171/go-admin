@@ -65,16 +65,24 @@ func (list *TinodeMessageList) GetTotal(c context.Context, funcs ...func(*gorm.D
 }
 
 type TinodeMessageView struct {
-	ID        int             `json:"id"`
-	CreatedAt time.Time       `json:"createdAt"`
-	Topic     string          `json:"topic"`
-	SeqID     int             `json:"seqid"`
-	From      int64           `json:"from,string"`
-	Username  string          `json:"username"`
-	MsgType   string          `json:"msgType"`
-	TopicType string          `json:"topicType"`
-	Content   string          `json:"content"`
-	Public    json.RawMessage `json:"public"`
+	ID        int                  `json:"id"`
+	CreatedAt time.Time            `json:"createdAt"`
+	Topic     string               `json:"topic"`
+	SeqID     int                  `json:"seqid"`
+	From      int64                `json:"from,string"`
+	Username  string               `json:"username"`
+	MsgType   string               `json:"msgType"`
+	TopicType string               `json:"topicType"`
+	Content   string               `json:"content"`
+	Media     []TinodeMessageMedia `json:"media,omitempty"`
+	Public    json.RawMessage      `json:"public"`
+}
+
+type TinodeMessageMedia struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	Mime string `json:"mime"`
+	Ref  string `json:"ref"`
 }
 
 func (m *TinodeMessage) View() TinodeMessageView {
@@ -88,6 +96,7 @@ func (m *TinodeMessage) View() TinodeMessageView {
 		MsgType:   MessageType(m.Content),
 		TopicType: TopicType(m.Topic),
 		Content:   MessageText(m.Content),
+		Media:     MessageMedia(m.Content),
 		Public:    m.UserPublic,
 	}
 }
@@ -135,6 +144,8 @@ type draftyEntry struct {
 	Data struct {
 		Mime string `json:"mime"`
 		Name string `json:"name"`
+		Ref  string `json:"ref"`
+		URL  string `json:"url"`
 	} `json:"data"`
 }
 
@@ -207,4 +218,55 @@ func MessageText(content json.RawMessage) string {
 		}
 	}
 	return ""
+}
+
+// MessageMedia 取出图片、语音、视频和文件的引用。按钮链接不算附件。
+func MessageMedia(content json.RawMessage) []TinodeMessageMedia {
+	doc, ok := parseDrafty(content)
+	if !ok {
+		return nil
+	}
+	var media []TinodeMessageMedia
+	for _, ent := range doc.Ent {
+		kind := mediaKind(ent.Tp, ent.Data.Mime)
+		ref := strings.TrimSpace(ent.Data.Ref)
+		if ref == "" {
+			ref = strings.TrimSpace(ent.Data.URL)
+		}
+		if kind == "" || ref == "" {
+			continue
+		}
+		media = append(media, TinodeMessageMedia{
+			Kind: kind,
+			Name: strings.TrimSpace(ent.Data.Name),
+			Mime: ent.Data.Mime,
+			Ref:  ref,
+		})
+	}
+	return media
+}
+
+func mediaKind(tp, mime string) string {
+	mime = strings.ToLower(mime)
+	switch tp {
+	case "IM":
+		return TinodeMsgImage
+	case "AU":
+		return TinodeMsgAudio
+	case "VD":
+		return TinodeMsgVideo
+	case "EX":
+		switch {
+		case strings.HasPrefix(mime, "image/"):
+			return TinodeMsgImage
+		case strings.HasPrefix(mime, "audio/"):
+			return TinodeMsgAudio
+		case strings.HasPrefix(mime, "video/"):
+			return TinodeMsgVideo
+		default:
+			return TinodeMsgFile
+		}
+	default:
+		return ""
+	}
 }

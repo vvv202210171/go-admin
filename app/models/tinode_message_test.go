@@ -55,6 +55,20 @@ func TestTopicType(t *testing.T) {
 	}
 }
 
+func TestMessageMedia(t *testing.T) {
+	content := json.RawMessage(`{"ent":[{"tp":"IM","data":{"mime":"image/png","name":"HOR.png","ref":"/v0/file/s/Lk1SmRiB4AY.png"}},{"tp":"BN","data":{"name":"ok","ref":"https://github.com/tinode/chat"}}]}`)
+	media := MessageMedia(content)
+	if len(media) != 1 {
+		t.Fatalf("media len = %d", len(media))
+	}
+	if media[0].Kind != TinodeMsgImage || media[0].Name != "HOR.png" || media[0].Ref != "/v0/file/s/Lk1SmRiB4AY.png" {
+		t.Fatalf("media = %+v", media[0])
+	}
+	if MessageMedia(json.RawMessage(`"你好"`)) != nil {
+		t.Fatal("plain text should have no media")
+	}
+}
+
 func TestUsernameFromTags(t *testing.T) {
 	if got := usernameFromTags(json.RawMessage(`["email:a@b.c","basic:member10003"]`)); got != "member10003" {
 		t.Fatalf("username = %s", got)
