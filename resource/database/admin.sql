@@ -564,7 +564,7 @@ CREATE TABLE `sys_menu`  (
   INDEX `idx_parent_id`(`parent_id` ASC) USING BTREE,
   INDEX `idx_sort`(`sort` ASC) USING BTREE,
   INDEX `idx_type`(`type` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 140443 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统菜单路由表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 140446 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统菜单路由表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of sys_menu
@@ -662,6 +662,9 @@ INSERT INTO `sys_menu` VALUES (140439, 140437, '', '', '', '', '编辑', 0, 0, 0
 INSERT INTO `sys_menu` VALUES (140440, 140437, '', '', '', '', '新增', 0, 0, 0, 1, 0, '', 0, '', '', 0, 3, 0, 'plugins:example:add', '2025-10-14 11:02:42', '2025-10-14 11:02:42', NULL, 1);
 INSERT INTO `sys_menu` VALUES (140441, 0, '/user', 'TinodeUser', '/user/list', '', 'tinode-user', 0, 0, 0, 0, 0, '', 0, '', 'IconUser', 1, 1, 0, '', '2026-11-10 15:24:51', '2026-11-10 15:24:51', NULL, 0);
 INSERT INTO `sys_menu` VALUES (140442, 140441, '/user/list', 'TinodeUserList', '', 'user/list/list', 'tinode-user-list', 0, 0, 0, 1, 0, '', 0, '', 'IconList', 1, 2, 0, '', '2026-11-10 15:24:51', '2026-11-10 15:24:51', NULL, 0);
+INSERT INTO `sys_menu` VALUES (140443, 0, '/chat', 'TinodeMessage', '/chat/message', '', 'tinode-message', 0, 0, 0, 0, 0, '', 0, '', 'IconMessage', 2, 1, 0, '', '2026-11-11 12:05:00', '2026-11-11 12:05:00', NULL, 0);
+INSERT INTO `sys_menu` VALUES (140444, 140443, '/chat/message', 'TinodeMessageList', '', 'chat/message/list', 'tinode-message-list', 0, 0, 0, 1, 0, '', 0, '', 'IconList', 1, 2, 0, '', '2026-11-11 12:05:00', '2026-11-11 12:05:00', NULL, 0);
+INSERT INTO `sys_menu` VALUES (140445, 140443, '/chat/topic', 'TinodeTopicList', '', 'chat/topic/list', 'tinode-topic-list', 0, 0, 0, 1, 0, '', 0, '', 'IconUserGroup', 2, 2, 0, '', '2026-11-11 12:05:00', '2026-11-11 12:05:00', NULL, 0);
 
 -- ----------------------------
 -- Table structure for sys_jobs
