@@ -19,8 +19,10 @@ import (
 	"encoding/json"
 	"go-admin/app/global/app"
 	"strings"
+	"sync"
 	"time"
 
+	"golang.org/x/crypto/xtea"
 	"gorm.io/gorm"
 )
 
@@ -81,31 +83,80 @@ func (list TinodeUserList) FillAddress() {
 	}
 }
 
-// TinodeUserAddress 把 users.id 编成页面上的 usr 地址。算法与聊天服务 Uid.UserId 一致。
+var (
+	tinodeUIDMu     sync.Mutex
+	tinodeUIDCipher *xtea.Cipher
+)
+
+// SetTinodeUIDKey 设置和聊天服务 store_config.uid_key 相同的 16 字节密钥。
+func SetTinodeUIDKey(key []byte) error {
+	cipher, err := xtea.NewCipher(key)
+	if err != nil {
+		return err
+	}
+	tinodeUIDMu.Lock()
+	tinodeUIDCipher = cipher
+	tinodeUIDMu.Unlock()
+	return nil
+}
+
+func tinodeUIDBlock() *xtea.Cipher {
+	tinodeUIDMu.Lock()
+	defer tinodeUIDMu.Unlock()
+	if tinodeUIDCipher != nil {
+		return tinodeUIDCipher
+	}
+	if app.ConfigYml == nil {
+		return nil
+	}
+	raw := strings.TrimSpace(app.ConfigYml.GetString("tinode.uidkey"))
+	key, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil || len(key) != 16 {
+		return nil
+	}
+	cipher, err := xtea.NewCipher(key)
+	if err != nil {
+		return nil
+	}
+	tinodeUIDCipher = cipher
+	return tinodeUIDCipher
+}
+
+// TinodeUserAddress 把 users.id 编成网页上的 usr 地址。
+// users.id 是解密后的主键，地址要对它做和聊天服务相同的 XTEA 加密后再编码。
 func TinodeUserAddress(id uint64) string {
-	if id == 0 {
+	cipher := tinodeUIDBlock()
+	if id == 0 || cipher == nil {
 		return ""
 	}
 	src := make([]byte, 8)
+	dst := make([]byte, 8)
 	binary.LittleEndian.PutUint64(src, id)
-	dst := make([]byte, base64.RawURLEncoding.EncodedLen(8))
-	base64.RawURLEncoding.Encode(dst, src)
-	return "usr" + string(dst)
+	cipher.Encrypt(dst, src)
+	return "usr" + base64.RawURLEncoding.EncodeToString(dst)
 }
 
 // ParseTinodeUserAddress 把 usr 地址还原成 users.id。格式不对时返回 false。
 func ParseTinodeUserAddress(address string) (uint64, bool) {
+	cipher := tinodeUIDBlock()
+	if cipher == nil {
+		return 0, false
+	}
 	address = strings.TrimSpace(address)
-	address = strings.TrimPrefix(address, "usr")
-	if len(address) != 11 {
+	if !strings.HasPrefix(address, "usr") {
 		return 0, false
 	}
-	dec := make([]byte, base64.RawURLEncoding.DecodedLen(len(address)))
-	n, err := base64.RawURLEncoding.Decode(dec, []byte(address))
-	if err != nil || n < 8 {
+	body := address[3:]
+	if len(body) != 11 {
 		return 0, false
 	}
-	id := binary.LittleEndian.Uint64(dec[:8])
+	enc, err := base64.RawURLEncoding.DecodeString(body)
+	if err != nil || len(enc) != 8 {
+		return 0, false
+	}
+	plain := make([]byte, 8)
+	cipher.Decrypt(plain, enc)
+	id := binary.LittleEndian.Uint64(plain)
 	if id == 0 {
 		return 0, false
 	}

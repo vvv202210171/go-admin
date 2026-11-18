@@ -277,6 +277,10 @@ gen:
   # 前端代码生成路径
   dir: "../ginfast-ui"
 
+# 聊天服务用户地址。uidkey 必须与 xchat_chat server/tinode.conf 的 store_config.uid_key 相同，否则后台列表里的地址无法用来加好友
+tinode:
+  uidkey: "la6YsO+bNX/+XIkOqc5Svw=="
+
 # 任务调度器配置
 scheduler:
   # 日志配置
