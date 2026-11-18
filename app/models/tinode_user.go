@@ -14,8 +14,11 @@ package models
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"go-admin/app/global/app"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -33,6 +36,8 @@ type TinodeUser struct {
 	Public    json.RawMessage `gorm:"column:public"`
 	Trusted   json.RawMessage `gorm:"column:trusted"`
 	Tags      json.RawMessage `gorm:"column:tags"` // basic:用户名、email:邮箱
+	// Address 是页面上的 usr 地址，由 users.id 算出，不落库
+	Address string `gorm:"-" json:"Address"`
 }
 type TinodeUserListRequest struct {
 	BasePaging
@@ -64,4 +69,45 @@ func (list *TinodeUserList) GetTotal(c context.Context, funcs ...func(*gorm.DB) 
 	var total int64
 	err := app.DB().WithContext(c).Scopes(funcs...).Model(TinodeUser{}).Count(&total).Error
 	return total, err
+}
+
+// FillAddress 用 users.id 算出每行的 usr 地址
+func (list TinodeUserList) FillAddress() {
+	for _, user := range list {
+		if user == nil || user.ID == 0 {
+			continue
+		}
+		user.Address = TinodeUserAddress(uint64(user.ID))
+	}
+}
+
+// TinodeUserAddress 把 users.id 编成页面上的 usr 地址。算法与聊天服务 Uid.UserId 一致。
+func TinodeUserAddress(id uint64) string {
+	if id == 0 {
+		return ""
+	}
+	src := make([]byte, 8)
+	binary.LittleEndian.PutUint64(src, id)
+	dst := make([]byte, base64.RawURLEncoding.EncodedLen(8))
+	base64.RawURLEncoding.Encode(dst, src)
+	return "usr" + string(dst)
+}
+
+// ParseTinodeUserAddress 把 usr 地址还原成 users.id。格式不对时返回 false。
+func ParseTinodeUserAddress(address string) (uint64, bool) {
+	address = strings.TrimSpace(address)
+	address = strings.TrimPrefix(address, "usr")
+	if len(address) != 11 {
+		return 0, false
+	}
+	dec := make([]byte, base64.RawURLEncoding.DecodedLen(len(address)))
+	n, err := base64.RawURLEncoding.Decode(dec, []byte(address))
+	if err != nil || n < 8 {
+		return 0, false
+	}
+	id := binary.LittleEndian.Uint64(dec[:8])
+	if id == 0 {
+		return 0, false
+	}
+	return id, true
 }

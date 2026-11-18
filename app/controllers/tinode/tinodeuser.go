@@ -30,6 +30,7 @@ func (c *TinodeUserController) List(ctx *gin.Context) {
 	if err != nil {
 		c.FailAndAbort(ctx, err.Error(), err)
 	}
+	userList.FillAddress()
 	c.Success(ctx, gin.H{
 		"list":  userList,
 		"total": total,

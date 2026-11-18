@@ -1,6 +1,8 @@
 package models
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -9,6 +11,7 @@ type TinodeUserListParam struct {
 	BasePaging
 	Validator
 	Id        uint     `form:"id"`
+	Address   string   `form:"address"`
 	Username  string   `form:"username"`
 	Email     string   `form:"email"`
 	State     string   `form:"state"`
@@ -22,6 +25,13 @@ func (r *TinodeUserListParam) Handle() func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if r.Id != 0 {
 			db = db.Where("id = ?", r.Id)
+		}
+		if address := strings.TrimSpace(r.Address); address != "" {
+			id, ok := ParseTinodeUserAddress(address)
+			if !ok {
+				return db.Where("1 = 0")
+			}
+			db = db.Where("id = ?", id)
 		}
 
 		if r.Username != "" {
