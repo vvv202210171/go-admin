@@ -42,3 +42,29 @@ func TestTinodeUserAddressRoundTrip(t *testing.T) {
 		t.Fatal("zero id should have an empty address")
 	}
 }
+
+func TestTinodeUserAddressUsesBuiltInKeyWhenConfigMissing(t *testing.T) {
+	tinodeUIDMu.Lock()
+	tinodeUIDCipher = nil
+	tinodeUIDMu.Unlock()
+	t.Cleanup(func() {
+		key, err := base64.StdEncoding.DecodeString(defaultTinodeUIDKey)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if err = SetTinodeUIDKey(key); err != nil {
+			t.Error(err)
+		}
+	})
+
+	const id uint64 = 1589474599144263680
+	address := TinodeUserAddress(id)
+	if address == "" {
+		t.Fatal("missing config should still produce an address")
+	}
+	got, ok := ParseTinodeUserAddress(address)
+	if !ok || got != id {
+		t.Fatalf("parse = %d ok=%v, want %d", got, ok, id)
+	}
+}

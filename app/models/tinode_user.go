@@ -18,6 +18,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"go-admin/app/global/app"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -83,6 +84,10 @@ func (list TinodeUserList) FillAddress() {
 	}
 }
 
+// 和 xchat_chat/server/tinode.conf 的 store_config.uid_key 相同。
+// 线上配置文件经常不随程序一起更新，缺 tinode.uidkey 时用这把密钥，避免地址变成空字符串。
+const defaultTinodeUIDKey = "la6YsO+bNX/+XIkOqc5Svw=="
+
 var (
 	tinodeUIDMu     sync.Mutex
 	tinodeUIDCipher *xtea.Cipher
@@ -100,22 +105,32 @@ func SetTinodeUIDKey(key []byte) error {
 	return nil
 }
 
+func tinodeUIDKeyText() string {
+	if app.ConfigYml == nil {
+		return defaultTinodeUIDKey
+	}
+	raw := strings.TrimSpace(app.ConfigYml.GetString("tinode.uidkey"))
+	if raw == "" {
+		return defaultTinodeUIDKey
+	}
+	return raw
+}
+
 func tinodeUIDBlock() *xtea.Cipher {
 	tinodeUIDMu.Lock()
 	defer tinodeUIDMu.Unlock()
 	if tinodeUIDCipher != nil {
 		return tinodeUIDCipher
 	}
-	if app.ConfigYml == nil {
-		return nil
-	}
-	raw := strings.TrimSpace(app.ConfigYml.GetString("tinode.uidkey"))
+	raw := tinodeUIDKeyText()
 	key, err := base64.StdEncoding.DecodeString(raw)
 	if err != nil || len(key) != 16 {
+		log.Printf("tinode.uidkey 无效，用户地址无法计算")
 		return nil
 	}
 	cipher, err := xtea.NewCipher(key)
 	if err != nil {
+		log.Printf("tinode.uidkey 无效，用户地址无法计算: %v", err)
 		return nil
 	}
 	tinodeUIDCipher = cipher
