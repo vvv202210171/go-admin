@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"go-admin/app/controllers/tinode"
 	"go-admin/app/global/app"
 	"go-admin/app/global/consts"
 	"go-admin/app/scheduler"
@@ -41,6 +42,8 @@ func init() {
 	app.ZapLog = createZapFactory(service.ZapLogHandler)
 	// 初始化数据库
 	initDB()
+	// 采样当天最高在线人数。须在数据库就绪之后。
+	tinode.StartOnlinePeakSampler()
 
 	// 初始化系统配置（自动建表播种 sys_config 并加载缓存，须在数据库就绪后、业务消费前）
 	initSysConfig()

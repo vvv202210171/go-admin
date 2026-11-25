@@ -10,7 +10,37 @@ import (
 	"time"
 
 	"go-admin/app/global/app"
+	"go-admin/app/models"
+
+	"go.uber.org/zap"
 )
+
+// StartOnlinePeakSampler 每分钟采样当前在线人数，并记下当天的最高值。
+// 后台进程停着的时候不会采样，那段时间的峰值不会被记下来。
+func StartOnlinePeakSampler() {
+	go func() {
+		sampleOnlinePeak()
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			sampleOnlinePeak()
+		}
+	}()
+}
+
+func sampleOnlinePeak() {
+	if partnerBaseURL() == "" || partnerAPIKey() == "" {
+		return
+	}
+	count, err := fetchPartnerOnline(context.Background(), partnerBaseURL(), partnerAPIKey())
+	if err != nil {
+		app.ZapLog.Warn("采样在线人数失败", zap.Error(err))
+		return
+	}
+	if err = models.RecordOnlinePeak(context.Background(), time.Now(), count); err != nil {
+		app.ZapLog.Warn("写入每日最高在线失败", zap.Error(err))
+	}
+}
 
 func partnerBaseURL() string {
 	if app.ConfigYml == nil {

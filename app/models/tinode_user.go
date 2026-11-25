@@ -17,6 +17,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"go-admin/app/global/app"
 	"log"
 	"strings"
@@ -114,7 +115,7 @@ func countTinodeSignups(c context.Context, start, end time.Time, layout string) 
 	var rows []tinodeSignupCount
 	bucket := "DATE_FORMAT(createdat, '" + layout + "')"
 	err := app.DB().WithContext(c).Model(TinodeUser{}).
-		Select(bucket + " AS bucket, COUNT(*) AS total").
+		Select(bucket+" AS bucket, COUNT(*) AS total").
 		Where("createdat >= ? AND createdat < ?", start, end).
 		Group(bucket).
 		Scan(&rows).Error
@@ -144,6 +145,74 @@ func fillMonthlySignups(start time.Time, counts map[string]int64) []TinodeSignup
 		points = append(points, TinodeSignupPoint{Label: label, Total: counts[label]})
 	}
 	return points
+}
+
+// TinodeOnlinePeak 保存某一天采样到的最高同时在线人数。
+type TinodeOnlinePeak struct {
+	PeakDay   string    `gorm:"column:peak_day;primaryKey;type:char(10)"`
+	Peak      int64     `gorm:"column:peak"`
+	UpdatedAt time.Time `gorm:"column:updated_at"`
+}
+
+func (TinodeOnlinePeak) TableName() string {
+	return "tinode_online_peak"
+}
+
+var (
+	onlinePeakMu    sync.Mutex
+	onlinePeakReady bool
+)
+
+func ensureOnlinePeakTable() error {
+	onlinePeakMu.Lock()
+	defer onlinePeakMu.Unlock()
+	if onlinePeakReady {
+		return nil
+	}
+	if app.DB() == nil {
+		return fmt.Errorf("数据库未就绪")
+	}
+	if err := app.DB().AutoMigrate(&TinodeOnlinePeak{}); err != nil {
+		return err
+	}
+	onlinePeakReady = true
+	return nil
+}
+
+// RecordOnlinePeak 把本次采样并入当天峰值。已有更高值时保持不变。
+func RecordOnlinePeak(c context.Context, now time.Time, count int64) error {
+	if count < 0 {
+		return nil
+	}
+	if err := ensureOnlinePeakTable(); err != nil {
+		return err
+	}
+	day := now.Format("2006-01-02")
+	return app.DB().WithContext(c).Exec(
+		"INSERT INTO tinode_online_peak (peak_day, peak, updated_at) VALUES (?, ?, ?) "+
+			"ON DUPLICATE KEY UPDATE peak = GREATEST(peak, ?), updated_at = ?",
+		day, count, now, count, now,
+	).Error
+}
+
+// TinodeOnlinePeaks 返回近 30 天每天的最高在线人数，没有采样的日期为 0。
+func TinodeOnlinePeaks(c context.Context, now time.Time) ([]TinodeSignupPoint, error) {
+	if err := ensureOnlinePeakTable(); err != nil {
+		return nil, err
+	}
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -29)
+	var rows []TinodeOnlinePeak
+	err := app.DB().WithContext(c).
+		Where("peak_day >= ? AND peak_day <= ?", start.Format("2006-01-02"), now.Format("2006-01-02")).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		counts[row.PeakDay] = row.Peak
+	}
+	return fillDailySignups(start, counts), nil
 }
 
 // FillAddress 用 users.id 算出每行的 usr 地址

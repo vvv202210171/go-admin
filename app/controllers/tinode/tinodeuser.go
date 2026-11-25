@@ -49,9 +49,15 @@ func (c *TinodeUserController) Summary(ctx *gin.Context) {
 	if err != nil {
 		c.FailAndAbort(ctx, "查询账户总数失败", err)
 	}
-	daily, monthly, err := models.TinodeSignupReport(ctx, time.Now())
+	now := time.Now()
+	daily, monthly, err := models.TinodeSignupReport(ctx, now)
 	if err != nil {
 		c.FailAndAbort(ctx, "查询新增注册失败", err)
+	}
+	peaks, err := models.TinodeOnlinePeaks(ctx, now)
+	if err != nil {
+		app.ZapLog.Warn("查询每日最高在线失败", zap.Error(err))
+		peaks = []models.TinodeSignupPoint{}
 	}
 
 	var online any
@@ -63,9 +69,10 @@ func (c *TinodeUserController) Summary(ctx *gin.Context) {
 		online = count
 	}
 	c.Success(ctx, gin.H{
-		"accountTotal":   total,
-		"onlineTotal":    online,
-		"dailySignups":   daily,
-		"monthlySignups": monthly,
+		"accountTotal":     total,
+		"onlineTotal":      online,
+		"dailySignups":     daily,
+		"monthlySignups":   monthly,
+		"dailyOnlinePeaks": peaks,
 	})
 }
