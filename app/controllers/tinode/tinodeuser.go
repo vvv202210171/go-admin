@@ -1,6 +1,7 @@
 package tinode
 
 import (
+	"context"
 	"time"
 
 	"go-admin/app/controllers"
@@ -61,16 +62,19 @@ func (c *TinodeUserController) Summary(ctx *gin.Context) {
 	}
 
 	var online any
-	count, onlineErr := fetchPartnerOnline(ctx, partnerBaseURL(), partnerAPIKey())
+	var onlineError string
+	count, onlineErr := fetchPartnerOnline(context.Background(), partnerBaseURL(), partnerAPIKey())
 	if onlineErr != nil {
 		app.ZapLog.Warn("查询当前在线人数失败", zap.Error(onlineErr))
 		online = nil
+		onlineError = onlineErr.Error()
 	} else {
 		online = count
 	}
 	c.Success(ctx, gin.H{
 		"accountTotal":     total,
 		"onlineTotal":      online,
+		"onlineError":      onlineError,
 		"dailySignups":     daily,
 		"monthlySignups":   monthly,
 		"dailyOnlinePeaks": peaks,

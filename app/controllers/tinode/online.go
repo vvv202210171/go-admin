@@ -66,7 +66,7 @@ func fetchPartnerOnline(ctx context.Context, baseURL, key string) (int64, error)
 
 	reqCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, baseURL+"/d/online_count", nil)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, baseURL+"/v0/online_count", nil)
 	if err != nil {
 		return 0, err
 	}
@@ -89,7 +89,11 @@ func fetchPartnerOnline(ctx context.Context, baseURL, key string) (int64, error)
 		} `json:"Data"`
 	}
 	if err = json.Unmarshal(body, &parsed); err != nil {
-		return 0, err
+		snippet := strings.TrimSpace(string(body))
+		if len(snippet) > 120 {
+			snippet = snippet[:120]
+		}
+		return 0, fmt.Errorf("在线人数响应无法解析: %s", snippet)
 	}
 	if parsed.Code != 0 {
 		if parsed.Message == "" {

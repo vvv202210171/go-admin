@@ -280,8 +280,9 @@ gen:
 # 聊天服务用户地址。uidkey 必须与 xchat_chat 的 store_config.uid_key 相同
 tinode:
   uidkey: "la6YsO+bNX/+XIkOqc5Svw=="
-  # 首页「当前在线人数」向聊天服务的合作方端口查询，密钥须与 tinode.conf 的 partner_api.api_key 相同
-  partnerurl: "http://127.0.0.1:16061"
+  # 首页「当前在线人数」向聊天服务的客户端端口查询 /v0/online_count。
+  # 密钥须与 tinode.conf 的 partner_api.api_key 相同。后台和聊天不在同一台机器时改成聊天服务内网地址。
+  partnerurl: "http://127.0.0.1:6060"
   partnerkey: "p9sK3mR7vQ2xL8nW4cF6hJ1dT5yB0aZ"
 
 # 任务调度器配置
