@@ -13,7 +13,7 @@ func TestFetchPartnerOnline(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v0/online_count" {
+		if r.URL.Path != "/d/online_count" {
 			t.Fatalf("路径 = %s", r.URL.Path)
 		}
 		if r.Header.Get("X-Partner-Key") != "secret" {

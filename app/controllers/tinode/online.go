@@ -66,7 +66,7 @@ func fetchPartnerOnline(ctx context.Context, baseURL, key string) (int64, error)
 
 	reqCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, baseURL+"/v0/online_count", nil)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, baseURL+"/d/online_count", nil)
 	if err != nil {
 		return 0, err
 	}
