@@ -238,6 +238,12 @@ func (s *CasbinHelper) CasbinMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// 聊天后台内置页面不依赖角色菜单授权，登录即可查看。
+		if common.IsBuiltinMenuAPI(path, method) {
+			c.Next()
+			return
+		}
+
 		// 使用带前缀的用户ID进行权限检查
 		userSubject := s.PrefixUser(userID)
 		// 获取租户ID（如果存在）

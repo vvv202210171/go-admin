@@ -280,6 +280,9 @@ gen:
 # 聊天服务用户地址。uidkey 必须与 xchat_chat server/tinode.conf 的 store_config.uid_key 相同，否则后台列表里的地址无法用来加好友
 tinode:
   uidkey: "la6YsO+bNX/+XIkOqc5Svw=="
+  # 首页「当前在线人数」向聊天服务的合作方端口查询，密钥须与 tinode.conf 的 partner_api.api_key 相同
+  partnerurl: "http://127.0.0.1:16061"
+  partnerkey: "p9sK3mR7vQ2xL8nW4cF6hJ1dT5yB0aZ"
 
 # 任务调度器配置
 scheduler:

@@ -56,6 +56,8 @@ func InitRoutes(engine *gin.Engine) {
 			{
 				// 获取tinode用户列表
 				tinodeUser.GET("/list", tinodeUserControllers.List)
+				// 首页：总账户、当前在线人数
+				tinodeUser.GET("/summary", tinodeUserControllers.Summary)
 
 			}
 			//tinode消息路由组

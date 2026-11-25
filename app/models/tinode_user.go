@@ -74,6 +74,78 @@ func (list *TinodeUserList) GetTotal(c context.Context, funcs ...func(*gorm.DB) 
 	return total, err
 }
 
+// 与聊天服务 ObjState 一致：20 表示已删除。总账户不计入已删除用户。
+const tinodeStateDeleted = 20
+
+// CountTinodeAccounts 统计未删除的聊天账户。
+func CountTinodeAccounts(c context.Context) (int64, error) {
+	var total int64
+	err := app.DB().WithContext(c).Model(TinodeUser{}).Where("state <> ?", tinodeStateDeleted).Count(&total).Error
+	return total, err
+}
+
+// TinodeSignupPoint 是一个时间桶里的新增注册人数。
+type TinodeSignupPoint struct {
+	Label string `json:"label"`
+	Total int64  `json:"total"`
+}
+
+type tinodeSignupCount struct {
+	Bucket string
+	Total  int64
+}
+
+// TinodeSignupReport 统计近 30 天每天、近 12 个月每月的新增注册。没有注册的日期补 0。
+func TinodeSignupReport(c context.Context, now time.Time) (daily []TinodeSignupPoint, monthly []TinodeSignupPoint, err error) {
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -29)
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, -11, 0)
+	dailyCounts, err := countTinodeSignups(c, dayStart, dayStart.AddDate(0, 0, 30), "%Y-%m-%d")
+	if err != nil {
+		return nil, nil, err
+	}
+	monthlyCounts, err := countTinodeSignups(c, monthStart, monthStart.AddDate(0, 12, 0), "%Y-%m")
+	if err != nil {
+		return nil, nil, err
+	}
+	return fillDailySignups(dayStart, dailyCounts), fillMonthlySignups(monthStart, monthlyCounts), nil
+}
+
+func countTinodeSignups(c context.Context, start, end time.Time, layout string) (map[string]int64, error) {
+	var rows []tinodeSignupCount
+	bucket := "DATE_FORMAT(createdat, '" + layout + "')"
+	err := app.DB().WithContext(c).Model(TinodeUser{}).
+		Select(bucket + " AS bucket, COUNT(*) AS total").
+		Where("createdat >= ? AND createdat < ?", start, end).
+		Group(bucket).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		counts[row.Bucket] = row.Total
+	}
+	return counts, nil
+}
+
+func fillDailySignups(start time.Time, counts map[string]int64) []TinodeSignupPoint {
+	points := make([]TinodeSignupPoint, 0, 30)
+	for i := 0; i < 30; i++ {
+		label := start.AddDate(0, 0, i).Format("2006-01-02")
+		points = append(points, TinodeSignupPoint{Label: label, Total: counts[label]})
+	}
+	return points
+}
+
+func fillMonthlySignups(start time.Time, counts map[string]int64) []TinodeSignupPoint {
+	points := make([]TinodeSignupPoint, 0, 12)
+	for i := 0; i < 12; i++ {
+		label := start.AddDate(0, i, 0).Format("2006-01")
+		points = append(points, TinodeSignupPoint{Label: label, Total: counts[label]})
+	}
+	return points
+}
+
 // FillAddress 用 users.id 算出每行的 usr 地址
 func (list TinodeUserList) FillAddress() {
 	for _, user := range list {

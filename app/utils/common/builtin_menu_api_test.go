@@ -12,6 +12,9 @@ func TestIsBuiltinMenuAPI(t *testing.T) {
 	if !IsBuiltinMenuAPI("/api/tinodeMessage/topic/list", "GET") {
 		t.Fatal("topic list should be allowed")
 	}
+	if !IsBuiltinMenuAPI("/api/tinodeUser/summary", "GET") {
+		t.Fatal("home summary should be allowed")
+	}
 	if IsBuiltinMenuAPI("/api/tinodeUser/list", "POST") {
 		t.Fatal("non-GET should not match")
 	}

@@ -49,6 +49,19 @@ func IsSelfServiceAPI(path, method string) bool {
 	return selfServiceAPIs[path] == method
 }
 
+// 聊天后台写死的菜单接口。这些页面不走角色菜单授权，登录后即可访问。
+var builtinMenuAPIs = map[string]string{
+	"/api/tinodeUser/list":          http.MethodGet,
+	"/api/tinodeUser/summary":       http.MethodGet,
+	"/api/tinodeMessage/list":       http.MethodGet,
+	"/api/tinodeMessage/topic/list": http.MethodGet,
+}
+
+// IsBuiltinMenuAPI 判断请求是否为聊天后台内置菜单接口。
+func IsBuiltinMenuAPI(path, method string) bool {
+	return builtinMenuAPIs[path] == method
+}
+
 // KeepLettersOnly 只保留字符串中的英文字母和下划线，并且全部转换为小写
 func KeepLettersOnly(s string) string {
 	var result strings.Builder
